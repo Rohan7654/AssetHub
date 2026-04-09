@@ -8,6 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 <script src="./tailwind.js"></script>
 <script>
   tailwind.config = {
@@ -388,6 +391,9 @@ margin-bottom: 0.85rem;
 border-top: 1px solid var(--border);
 padding-top: 0.75rem;
 }
+
+
+
 
 .card-actions { display: flex; gap: 0.5rem; }
 .action-btn {
@@ -786,7 +792,11 @@ z-index: 100; height: calc(100vh - 60px);
   <main class="main">
     <div class="toolbar">
       <div class="result-count" id="resultCount">Ready — enter a file search query and click Search</div>
-      <div style="display:flex;gap:0.5rem;align-items:center">
+      <div style="display:flex;gap:0.75rem;align-items:center">
+        <button class="btn" style="background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:0.4rem 0.8rem" onclick="bulkExportUrls()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Export URLs
+        </button>
         <div class="view-btns">
           <div class="view-btn active" id="gridBtn" onclick="setView('grid')" title="Grid view">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -888,7 +898,7 @@ const typeConfig = {
   pdf:  { label:'PDF',  icon:'📕', badge:'badge-pdf', exts:['pdf'] },
   txt:  { label:'TXT',  icon:'📄', badge:'badge-txt', exts:['txt','md','rst','log','csv','json','xml','yaml','yml','ini','cfg','conf','env','toml'] },
   zip:  { label:'ZIP',  icon:'📦', badge:'badge-zip', exts:['zip','tar','gz','rar','7z','bz2','xz','tgz'] },
-  img:  { label:'IMG',  icon:'🖼️', badge:'badge-img', exts:['png','jpg','jpeg','gif','svg','webp','ico','bmp','tiff'] },
+  img:  { label:'IMG',  icon:'🖼️', badge:'badge-img', exts:['svg','png','jpg','jpeg','gif','webp','ico','bmp','tiff'] },
   doc:  { label:'DOC',  icon:'📝', badge:'badge-doc', exts:['doc','docx','xls','xlsx','ppt','pptx','odt','ods','odp'] },
   other:{ label:'?',    icon:'📎', badge:'badge-other', exts:[] },
 };
@@ -915,16 +925,42 @@ function isTargetFile(name) {
 }
 
 // ===================== TOKEN & HEADERS =====================
-function getHeaders() {
-  const token = document.getElementById('ghToken').value.trim();
-  const headers = { 'Accept': 'application/vnd.github+json' };
+function scrambleToken(token) {
+  if (!token) return '';
+  let res = '';
+  for(let i=0; i<token.length; i++) res += String.fromCharCode(token.charCodeAt(i) ^ 42);
+  return btoa(res);
+}
+
+function unscrambleToken(scrambled) {
+  if (!scrambled) return '';
+  try {
+    let raw = atob(scrambled);
+    let res = '';
+    for(let i=0; i<raw.length; i++) res += String.fromCharCode(raw.charCodeAt(i) ^ 42);
+    return res;
+  } catch(e) { return ''; }
+}
+
+function getHeaders(requestSnippets = false) {
+  let tokenInput = document.getElementById('ghToken').value.trim();
+  let token = tokenInput === '[Secured Token]' ? unscrambleToken(localStorage.getItem('ghToken')) : tokenInput;
+  
+  const headers = { 
+    'Accept': requestSnippets ? 'application/vnd.github.v3.text-match+json' : 'application/vnd.github.v3+json' 
+  };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
 }
 
 function onTokenChange(input) {
   input.classList.toggle('has-token', input.value.trim().length > 0);
-  localStorage.setItem('ghToken', input.value.trim());
+  if (input.value.trim() && input.value.trim() !== '[Secured Token]') {
+    localStorage.setItem('ghToken', scrambleToken(input.value.trim()));
+    input.value = '[Secured Token]';
+  } else if (!input.value.trim()) {
+    localStorage.removeItem('ghToken');
+  }
   updateRatePill();
 }
 
@@ -933,7 +969,7 @@ async function loadCachedToken() {
   const cached = localStorage.getItem('ghToken');
   
   if (cached) {
-    input.value = cached;
+    input.value = '[Secured Token]';
     input.classList.add('has-token');
   }
 
@@ -944,10 +980,10 @@ async function loadCachedToken() {
       const text = await resp.text();
       const match = text.match(/GITHUB_API_KEY\s*=\s*(ghp_[a-zA-Z0-9]+)/i);
       if (match && match[1]) {
-        input.value = match[1];
+        input.value = '[Secured Token]';
         input.classList.add('has-token');
-        if (cached !== match[1]) {
-          localStorage.setItem('ghToken', match[1]);
+        if (unscrambleToken(cached) !== match[1]) {
+          localStorage.setItem('ghToken', scrambleToken(match[1]));
           updateRatePill();
         }
       }
@@ -967,9 +1003,10 @@ function saveOnboardToken() {
   if(!val) return showToast('⚠️ Please enter a token');
   
   const mainInput = document.getElementById('ghToken');
-  mainInput.value = val;
+  mainInput.value = '[Secured Token]';
   mainInput.classList.add('has-token');
-  localStorage.setItem('ghToken', val);
+  localStorage.setItem('ghToken', scrambleToken(val));
+  document.getElementById('onboardToken').value = '';
   
   document.getElementById('onboardOverlay').style.display = 'none';
   showToast('Token saved! Ready to search.');
@@ -1108,16 +1145,18 @@ async function performGlobalSearch() {
       let url = `https://api.github.com/search/code?q=${encodeURIComponent(apiQuery)}&per_page=100&page=${page}`;
       if (advSort) url += `&sort=${advSort}&order=desc`;
       
-      const searchResp = await fetch(url, { headers: getHeaders() });
+      const searchResp = await fetch(url, { headers: getHeaders(true) });
       
       if (!searchResp.ok) {
         if (searchResp.status === 401) throw new Error('Invalid token — check your GitHub PAT');
         if (searchResp.status === 403) {
           const resetTime = searchResp.headers.get('x-ratelimit-reset');
           if (resetTime) {
-             const waitMs = (parseInt(resetTime) * 1000) - Date.now() + 1000;
+             const parsedReset = parseInt(resetTime) * 1000;
+             rateResetTime = parsedReset; // Sync navbar countdown
+             const waitMs = parsedReset - Date.now() + 1000;
              if (waitMs > 0 && waitMs < 60000) { // Wait up to 1 minute smoothly instead of blocking entirely
-               setResultCount(`Pacing limits hit. Auto-resuming dynamically in ${Math.ceil(waitMs / 1000)}s...`);
+               setResultCount(`Pacing limits hit. Auto-resuming dynamically, check nav bar for countdown...`);
                await new Promise(r => setTimeout(r, waitMs));
                page--; // Restart exactly at current page iteration
                continue;
@@ -1139,6 +1178,11 @@ async function performGlobalSearch() {
         // Skip duplicates to keep the index clean
         if (allAssets.some(a => a.repo === repoName && a.path === item.path)) continue;
 
+        let snippet = '';
+        if (item.text_matches && item.text_matches.length > 0) {
+           snippet = item.text_matches[0].fragment || '';
+        }
+
         allAssets.push({
           name: item.name,
           repo: repoName,
@@ -1149,7 +1193,8 @@ async function performGlobalSearch() {
           type: item.name.split('.').pop().toLowerCase(),
           repoUpdated: new Date().toISOString(),
           stars: 0,
-          isNew: true
+          isNew: true,
+          snippet: snippet
         });
       }
       
@@ -1161,9 +1206,21 @@ async function performGlobalSearch() {
     document.getElementById('statRepos').textContent = new Set(allAssets.map(a => a.repo)).size;
     setProgress(100);
 
-    // Cache the fetched dataset to LocalStorage
+    // Cache the fetched dataset to LocalStorage gracefully
     if (allAssets.length > 0) {
-      localStorage.setItem('cachedAssets', JSON.stringify(allAssets));
+      try {
+        localStorage.setItem('cachedAssets', JSON.stringify(allAssets));
+      } catch (e) {
+        console.warn('Storage quota exceeded. Trimming asset cache...');
+        while (allAssets.length > 150) {
+          allAssets.shift(); // Remove oldest datasets first
+        }
+        try {
+          localStorage.setItem('cachedAssets', JSON.stringify(allAssets));
+        } catch (e2) {
+          console.warn('Still exceeding quota, stopping cache save.');
+        }
+      }
     }
 
     // buildRepoFilters(); (Removed legacy filter)
@@ -1327,7 +1384,7 @@ function highlight(text) {
 function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function makeCard(asset, i) {
-  const cfg = typeConfig[asset.type];
+  const cfg = typeConfig[asset.type] || typeConfig['other'];
   const isImg = asset.type === 'img';
   const div = document.createElement('div');
   div.className = 'card';
@@ -1337,7 +1394,7 @@ function makeCard(asset, i) {
   if (isImg) {
     imgHtml = `
       <div class="card-image">
-        <img src="${asset.downloadUrl}" loading="lazy" onload="this.classList.add('loaded')" onerror="this.parentElement.style.display='none'">
+        <img src="${asset.rawUrl}" loading="lazy" onload="this.classList.add('loaded')" onerror="this.parentElement.style.display='none'">
       </div>`;
   }
 
@@ -1353,21 +1410,26 @@ function makeCard(asset, i) {
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
       ${highlight(asset.repo)}
     </div>
-    <div class="card-meta">
+
+    <div class="card-meta" style="margin-top: auto;">
       <span>${formatSize(asset.size)}</span>
       <span>${formatDate(asset.repoUpdated)}</span>
     </div>
+  
     <div class="card-actions">
       <button class="action-btn icon-only" onclick="toggleFav('${asset.sha}', event)" title="Toggle Favorite">
         ${allFavorites.some(f => f.sha === asset.sha) ? '⭐' : '☆'}
       </button>
-      <button class="action-btn download" onclick="triggerDownload('${asset.downloadUrl}', '${asset.name.replace(/'/g,"\\'")}')">
+      <button class="action-btn download" onclick="triggerDownload('${asset.rawUrl.replace(/'/g,"\\'")}', '${asset.name.replace(/'/g,"\\'")}')">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download
       </button>
       <a class="action-btn icon-only" href="https://github.com/${asset.repo}" target="_blank" title="Visit Repo">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
       </a>
+      <button class="action-btn icon-only" onclick="openPreview(${i})" title="Preview">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
       <button class="action-btn icon-only" onclick='openModal(${JSON.stringify(asset).replace(/'/g,"&#39;")})' title="Info">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </button>
@@ -1376,7 +1438,7 @@ function makeCard(asset, i) {
 }
 
 function makeRow(asset, i) {
-  const cfg = typeConfig[asset.type];
+  const cfg = typeConfig[asset.type] || typeConfig['other'];
   const div = document.createElement('div');
   div.className = 'list-row';
   div.style.animationDelay = `${Math.min(i * 20, 200)}ms`;
@@ -1397,12 +1459,15 @@ function makeRow(asset, i) {
       <button class="action-btn icon-only" onclick="toggleFav('${asset.sha}', event)" title="Toggle Favorite">
         ${allFavorites.some(f => f.sha === asset.sha) ? '⭐' : '☆'}
       </button>
-      <button class="action-btn download" onclick="triggerDownload('${asset.downloadUrl}', '${asset.name.replace(/'/g,"\\'")}')" style="flex:0 0 auto;padding:0.4rem 0.7rem">
+      <button class="action-btn download" onclick="triggerDownload('${asset.rawUrl.replace(/'/g,"\\'")}', '${asset.name.replace(/'/g,"\\'")}')" style="flex:0 0 auto;padding:0.4rem 0.7rem">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </button>
       <a class="action-btn icon-only" href="https://github.com/${asset.repo}" target="_blank" title="Visit Repo">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
       </a>
+      <button class="action-btn icon-only" onclick="openPreview(${i})" title="Preview">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
       <button class="action-btn icon-only" onclick='openModal(${JSON.stringify(asset).replace(/'/g,"&#39;")})' title="Info">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </button>
@@ -1412,7 +1477,7 @@ function makeRow(asset, i) {
 
 // ===================== MODAL =====================
 function openModal(asset) {
-  const cfg = typeConfig[asset.type];
+  const cfg = typeConfig[asset.type] || typeConfig['other'];
   const isExe = asset.type === 'exe';
   document.getElementById('modalContent').innerHTML = `
     <div class="modal-header">
@@ -1429,11 +1494,11 @@ function openModal(asset) {
     <div class="info-row"><span class="info-label">SHA</span><span class="info-val" style="font-size:0.65rem">${asset.sha}</span></div>
     ${isExe ? `<div class="warning-box">⚠️ <span>Exercise caution with executable files. Verify the source repository and author before running.</span></div>` : ''}
     <div style="display:flex;gap:0.5rem;margin-top:1.25rem">
-      <button class="action-btn download" style="flex:1;justify-content:center" onclick="triggerDownload('${asset.downloadUrl}', '${asset.name.replace(/'/g,"\\'")}')">
+      <button class="action-btn download" style="flex:1;justify-content:center" onclick="triggerDownload('${asset.rawUrl.replace(/'/g,"\\'")}', '${asset.name.replace(/'/g,"\\'")}')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download
       </button>
-      <button class="action-btn" style="flex:1;justify-content:center" onclick='copyLink("${asset.downloadUrl}")'>
+      <button class="action-btn" style="flex:1;justify-content:center" onclick='copyLink("${asset.rawUrl.replace(/"/g,"\\\"")}")'>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         Copy Link
       </button>
@@ -1442,6 +1507,51 @@ function openModal(asset) {
       </a>
     </div>`;
   document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+async function openPreview(index) {
+  const asset = allAssets[index];
+  const isImg = asset.type === 'img';
+  
+  let contentHtml = '<div style="padding:2rem;text-align:center;color:var(--muted)">Loading preview...</div>';
+
+  document.getElementById('modalContent').innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">Preview: ${escHtml(asset.name)}</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="previewContainer" style="max-height:60vh;overflow:auto;background:#0d1117;border-radius:6px;border:1px solid var(--border);margin-top:1rem;">
+      ${contentHtml}
+    </div>
+    <div style="margin-top:1rem;display:flex;justify-content:flex-end;">
+      <a href="${asset.rawUrl}" target="_blank" class="btn btn-primary" style="text-decoration:none">Open Raw URL</a>
+    </div>
+  `;
+  document.getElementById('modalOverlay').style.display = 'flex';
+
+  const container = document.getElementById('previewContainer');
+
+  if (isImg) {
+    container.innerHTML = `<img src="${asset.rawUrl}" style="max-width:100%;display:block;margin:0 auto;" />`;
+  } else {
+    try {
+      const resp = await fetch(asset.rawUrl);
+      if (!resp.ok) throw new Error('Fetch failed');
+      const text = await resp.text();
+      // Use Prism logic dynamically grabbing language from extension, fallback to pure text
+      const ext = asset.name.split('.').pop().toLowerCase();
+      let lang = ext;
+      if (['js', 'jsx'].includes(lang)) lang = 'javascript';
+      if (['ts', 'tsx'].includes(lang)) lang = 'typescript';
+      if (lang === 'py') lang = 'python';
+      
+      const safeText = escHtml(text);
+      container.innerHTML = `<pre><code class="language-${lang}">${safeText}</code></pre>`;
+      Prism.highlightAllUnder(container);
+    } catch (e) {
+      container.innerHTML = `<div style="padding:2rem;color:#f85149">Error loading preview. File might be too large, binary, or restricted.</div>`;
+    }
+  }
 }
 
 function closeModal(e) {
@@ -1503,6 +1613,7 @@ function setResultCount(html) { document.getElementById('resultCount').innerHTML
 
 function setView(v) {
   currentView = v;
+  localStorage.setItem('ghViewPref', v);
   document.getElementById('gridBtn').classList.toggle('active', v==='grid');
   document.getElementById('listBtn').classList.toggle('active', v==='list');
   renderAssets();
@@ -1628,6 +1739,21 @@ function loadCachedAssets() {
   } catch(e) { /* ignore parse errors */ }
 }
 
+function bulkExportUrls() {
+  if (allAssets.length === 0) {
+    alert("No assets found to export.");
+    return;
+  }
+  const urls = allAssets.map(a => a.rawUrl).join('\n');
+  const blob = new Blob([urls], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `assethub_export_${Date.now()}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 // Initialize application state
 window.onload = async () => {
   await loadCachedToken();
@@ -1635,6 +1761,9 @@ window.onload = async () => {
   setupKeyboardShortcuts();
   loadCachedAssets();
   updateRatePill();
+
+  const savedView = localStorage.getItem('ghViewPref');
+  if (savedView) setView(savedView);
   
   // Feature: Auto-preload broad results if no cache exists and a valid token is present
   const hasToken = document.getElementById('ghToken').value.trim();
