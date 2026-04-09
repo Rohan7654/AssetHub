@@ -4,7 +4,7 @@
 
 ## 🌐 Live Demo
 You can view a live version of AssetHub here:
-**[View Live Preview](https://your-username.github.io/AssetHub/)**
+**[View Live Preview](https://Rohan7654.github.io/AssetHub/)**
 
 ![AssetHub Banner](banner.png)
 
