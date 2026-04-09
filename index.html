@@ -107,29 +107,34 @@ flex-shrink: 0;
 
 /* SEARCH */
 .search-wrap {
-flex: 1;
-position: relative;
-max-width: 480px;
-}
-.search-input {
-width: 100%;
-background: var(--surface2);
-border: 1px solid var(--border);
-border-radius: 8px;
-padding: 0.5rem 1rem 0.5rem 2.5rem;
-font-family: 'JetBrains Mono', monospace;
-font-size: 0.8rem;
-color: var(--text);
-outline: none;
-transition: border-color 0.2s, box-shadow 0.2s;
-}
-.search-input:focus {
-border-color: var(--accent);
-box-shadow: 0 0 0 3px rgba(57,211,83,0.15);
+  position: relative;
+  flex: 1;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
 }
 .search-icon {
-position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%);
-color: var(--muted); pointer-events: none;
+  position: absolute; 
+  left: 0.9rem; 
+  top: 50%; 
+  transform: translateY(-50%);
+  color: var(--muted); 
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.7;
+}
+.search-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 1rem 0.55rem 2.6rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  line-height: 1.2;
 }
 .search-clear {
 position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
@@ -140,31 +145,39 @@ background: none; border: none; padding: 0;
 
 /* GITHUB INPUT */
 .gh-input-wrap {
-display: flex; align-items: center; gap: 0.5rem;
-flex-shrink: 0;
+  display: flex; 
+  align-items: center; 
+  gap: 0.8rem;
+  flex: 1;
+  justify-content: flex-end;
+  flex-shrink: 0;
 }
-.gh-input {
-background: var(--surface2);
-border: 1px solid var(--border);
-border-radius: 8px;
-padding: 0.45rem 0.75rem;
-font-family: 'JetBrains Mono', monospace;
-font-size: 0.75rem;
-color: var(--text);
-outline: none;
-width: 200px;
-transition: border-color 0.2s;
+.token-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text);
+  outline: none;
+  width: 200px;
+  transition: border-color 0.2s;
+  line-height: 1.2;
 }
-.gh-input:focus { border-color: var(--accent2); }
-.gh-input::placeholder { color: var(--muted); }
+.token-input:focus { border-color: var(--accent); }
+.token-input::placeholder { color: var(--muted); }
 
 .btn {
-display: inline-flex; align-items: center; gap: 0.4rem;
-padding: 0.45rem 0.9rem;
-border-radius: 8px;
-font-family: 'JetBrains Mono', monospace;
-font-size: 0.75rem;
-font-weight: 600;
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.2rem;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
 cursor: pointer;
 border: none;
 transition: all 0.2s;
@@ -358,6 +371,7 @@ display: -webkit-box;
 -webkit-line-clamp: 2;
 -webkit-box-orient: vertical;
 overflow: hidden;
+text-align: left;
 }
 
 .card-repo {
@@ -650,8 +664,8 @@ z-index: 100; height: calc(100vh - 60px);
     AssetHub
   </div>
 
-  <div class="gh-input-wrap" style="flex: 1; justify-content: flex-end;">
-    <div class="search-wrap" style="flex: 1; max-width: 480px; margin: 0; display: block;">
+  <div class="gh-input-wrap">
+    <div class="search-wrap">
       <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input type="text" id="globalSearchQuery" class="search-input" placeholder="Global search: e.g. filename:app.apk" value="" onkeydown="if(event.key==='Enter') performGlobalSearch()" />
       <div id="historyBar" class="history-bar"></div>
@@ -667,10 +681,30 @@ z-index: 100; height: calc(100vh - 60px);
       <div class="advanced-filters" id="advancedFilters" style="display:none; position: absolute; top: calc(100% + 5px); right: 0; background: var(--surface2); padding: 1rem; border: 1px solid var(--border); border-radius: 8px; z-index: 100; flex-direction: column; gap: 0.5rem; min-width: 250px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
         <div style="font-size:0.8rem; color:var(--muted)">Author (user:name)</div>
         <input type="text" id="advAuthor" class="search-input" style="width:100%" placeholder="e.g. torvalds" />
-        <div style="font-size:0.8rem; color:var(--muted); margin-top: 0.5rem;">Repository (repo:name)</div>
-        <input type="text" id="advRepo" class="search-input" style="width:100%" placeholder="e.g. facebook/react" />
+        
+        <div style="display:flex; gap:0.75rem; margin-top: 0.5rem;">
+          <div style="flex:1">
+            <div style="font-size:0.8rem; color:var(--muted)">Min Stars</div>
+            <input type="number" id="advStars" class="search-input" style="width:100%" placeholder="0" min="0" />
+          </div>
+          <div style="flex:1.5">
+            <div style="font-size:0.8rem; color:var(--muted)">Sort By</div>
+            <select id="advSort" class="sort-select" style="margin-top:0.35rem">
+              <option value="indexed">Recently Indexed</option>
+              <option value="">Best Match</option>
+              <option value="updated">Recently Updated</option>
+            </select>
+          </div>
+        </div>
+
         <div style="font-size:0.8rem; color:var(--muted); margin-top: 0.5rem;">Language (language:name)</div>
         <input type="text" id="advLang" class="search-input" style="width:100%" placeholder="e.g. python" />
+        
+        <hr style="border:0; border-top:1px solid var(--border); margin: 0.5rem 0;" />
+        <button class="btn" style="background:rgba(247,129,102,0.1); border:1px solid rgba(247,129,102,0.3); color:#f78166; width:100%; justify-content:center;" onclick="clearAllData()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          Clear All Data & Token
+        </button>
       </div>
     </div>
     
@@ -719,16 +753,6 @@ z-index: 100; height: calc(100vh - 60px);
     <div class="chip" data-filter="type" data-val="img" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#bc8cff"></span>IMG</div>
     <div class="chip" data-filter="type" data-val="doc" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#79c0ff"></span>DOC</div>
     <div class="chip" data-filter="type" data-val="other" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#7d8590"></span>Other</div>
-  </div>
-</div>
-
-<div class="filter-section">
-  <div class="filter-title">
-    Repository
-    <button onclick="clearFilter('repo')">clear</button>
-  </div>
-  <div class="chip-group" id="repoFilters">
-    <div class="chip active" data-filter="repo" data-val="all" onclick="toggleFilter(this,'repo')">All Repos</div>
   </div>
 </div>
 
@@ -824,6 +848,25 @@ let filters = { type: 'all', repo: 'all', recency: 'all' };
 let currentView = 'grid';
 let currentPage = 1;
 const ITEMS_PER_PAGE = 36;
+let rateResetTime = null;
+
+// Dynamic Rate Countdown
+setInterval(() => {
+  if (!rateResetTime) return;
+  const now = Date.now();
+  const diff = Math.ceil((rateResetTime - now) / 1000);
+  const text = document.getElementById('rateText');
+  const pill = document.getElementById('ratePill');
+  
+  if (diff <= 0) {
+    text.innerText = "Ready";
+    pill.style.borderColor = 'var(--accent)';
+    return;
+  }
+  
+  text.innerText = `Reset in ${diff}s`;
+  pill.style.borderColor = diff < 10 ? '#f78166' : 'var(--border)';
+}, 1000);
 
 function toggleFav(sha, evt) {
   if (evt) evt.stopPropagation();
@@ -931,6 +974,11 @@ function saveOnboardToken() {
   document.getElementById('onboardOverlay').style.display = 'none';
   showToast('Token saved! Ready to search.');
   updateRatePill();
+  
+  // Trigger initial search if we have no assets yet
+  if (allAssets.length === 0) {
+    performGlobalSearch();
+  }
 }
 
 function toggleTokenVisibility() {
@@ -946,15 +994,48 @@ async function updateRatePill() {
     if (!resp.ok) return;
     const data = await resp.json();
     const limitInfo = data.resources.search || data.rate;
-    const { remaining, limit } = limitInfo;
+    const { remaining, limit, reset } = limitInfo;
     const pill = document.getElementById('ratePill');
     const text = document.getElementById('rateText');
+    
+    // Sync the dynamic countdown
+    if (reset) rateResetTime = reset * 1000;
+    
     text.textContent = `${remaining.toLocaleString()}/${limit.toLocaleString()} /min`;
     pill.className = 'rate-pill';
     if (remaining > limit * 0.5) pill.classList.add('ok');
     else if (remaining > limit * 0.1) pill.classList.add('warn');
     else pill.classList.add('bad');
   } catch(e) { /* silent */ }
+}
+
+function clearAllData() {
+  if (!confirm('Are you sure you want to clear your GitHub Token and all cached search data?')) return;
+  
+  localStorage.removeItem('ghToken');
+  localStorage.removeItem('cachedAssets');
+  localStorage.removeItem('ghSearchHistory');
+  
+  const tokenInput = document.getElementById('ghToken');
+  if (tokenInput) {
+    tokenInput.value = '';
+    tokenInput.classList.remove('has-token');
+  }
+  
+  allAssets = [];
+  searchHistory = [];
+  renderHistory();
+  renderAssets();
+  updateStats();
+  updateRatePill();
+  
+  document.getElementById('advancedFilters').style.display = 'none';
+  showToast('🗑️ All local data cleared.');
+  
+  // Immediately show onboarding for the next token entry and ensure inputs are fresh
+  const onboardInput = document.getElementById('onboardToken');
+  if (onboardInput) onboardInput.value = '';
+  document.getElementById('onboardOverlay').style.display = 'flex';
 }
 
 // ===================== GITHUB API =====================
@@ -1002,14 +1083,16 @@ async function performGlobalSearch() {
 
   // Append optional advanced GitHub search directives
   const advAuthor = document.getElementById('advAuthor') ? document.getElementById('advAuthor').value.trim() : '';
-  const advRepo = document.getElementById('advRepo') ? document.getElementById('advRepo').value.trim() : '';
+  const advStars = document.getElementById('advStars') ? document.getElementById('advStars').value.trim() : '';
   const advLang = document.getElementById('advLang') ? document.getElementById('advLang').value.trim() : '';
+  const advSort = document.getElementById('advSort') ? document.getElementById('advSort').value : '';
 
   if (advAuthor) apiQuery += ` user:${advAuthor}`;
-  if (advRepo) apiQuery += ` repo:${advRepo}`;
+  if (advStars) apiQuery += ` stars:>=${advStars}`;
   if (advLang) apiQuery += ` language:${advLang}`;
 
-  allAssets = [];
+  // We no longer reset allAssets = []; to enable cumulative dynamic indexing.
+  // We will instead merge new results and skip duplicates.
   showProgress(true);
   setResultCount('Searching GitHub network...');
   document.getElementById('statsBar').style.display = 'none';
@@ -1022,7 +1105,10 @@ async function performGlobalSearch() {
     saveSearchToHistory(rawQuery);
     for (let page = 1; page <= maxPages; page++) {
       setProgress(page * 25);
-      const searchResp = await fetch(`https://api.github.com/search/code?q=${encodeURIComponent(apiQuery)}&per_page=100&page=${page}`, { headers: getHeaders() });
+      let url = `https://api.github.com/search/code?q=${encodeURIComponent(apiQuery)}&per_page=100&page=${page}`;
+      if (advSort) url += `&sort=${advSort}&order=desc`;
+      
+      const searchResp = await fetch(url, { headers: getHeaders() });
       
       if (!searchResp.ok) {
         if (searchResp.status === 401) throw new Error('Invalid token — check your GitHub PAT');
@@ -1049,20 +1135,18 @@ async function performGlobalSearch() {
       if (items.length === 0) break;
       
       for (const item of items) {
-        const repo = item.repository;
-        let rawUrl = item.html_url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
-        
+        const repoName = item.repository.full_name;
+        // Skip duplicates to keep the index clean
+        if (allAssets.some(a => a.repo === repoName && a.path === item.path)) continue;
+
         allAssets.push({
           name: item.name,
+          repo: repoName,
           path: item.path,
-          repo: repo.full_name,
-          repoUrl: repo.html_url,
-          size: null, // Code Search API doesn't return size
-          downloadUrl: rawUrl,
-          htmlUrl: item.html_url,
-          sha: item.sha,
-          type: getFileType(item.name),
-          ext: item.name.split('.').pop().toLowerCase(),
+          url: item.html_url,
+          rawUrl: item.html_url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/'),
+          size: 0, 
+          type: item.name.split('.').pop().toLowerCase(),
           repoUpdated: new Date().toISOString(),
           stars: 0,
           isNew: true
@@ -1082,7 +1166,7 @@ async function performGlobalSearch() {
       localStorage.setItem('cachedAssets', JSON.stringify(allAssets));
     }
 
-    buildRepoFilters();
+    // buildRepoFilters(); (Removed legacy filter)
     updateStats();
     renderAssets();
     showToast(`✅ Found ${fetchedCount} assets across GitHub`);
@@ -1115,9 +1199,9 @@ function toggleFilter(el, group) {
   el.classList.add('active');
   filters[group] = el.dataset.val;
   
-  // If we change the main file type, immediately execute a global search if authenticated
-  // Skip global search for 'favorites' as it's a local filter
-  if (group === 'type' && filters.type !== 'favorites' && document.getElementById('ghToken').value.trim()) {
+  // Trigger a fresh global network scan when switching file types (unless viewing favorites)
+  const hasToken = document.getElementById('ghToken').value.trim();
+  if (group === 'type' && filters.type !== 'favorites' && hasToken) {
     performGlobalSearch();
   } else {
     renderAssets();
@@ -1136,21 +1220,7 @@ function clearFilter(group) {
   }
 }
 
-function buildRepoFilters() {
-  const repos = [...new Set(allAssets.map(a => a.repo))].sort();
-  const container = document.getElementById('repoFilters');
-  container.innerHTML = `<div class="chip active" data-filter="repo" data-val="all" onclick="toggleFilter(this,'repo')">All Repos</div>`;
-  repos.forEach(r => {
-    const d = document.createElement('div');
-    d.className = 'chip';
-    d.dataset.filter = 'repo';
-    d.dataset.val = r;
-    d.textContent = r.length > 14 ? r.slice(0,13)+'…' : r;
-    d.title = r;
-    d.onclick = function(){ toggleFilter(this, 'repo'); };
-    container.appendChild(d);
-  });
-}
+// Removed legacy buildRepoFilters function
 
 // ===================== SORT & FILTER =====================
 function getFiltered() {
@@ -1550,7 +1620,7 @@ function loadCachedAssets() {
       allAssets = JSON.parse(cached);
       if (allAssets && allAssets.length > 0) {
         setResultCount(`Loaded ${allAssets.length} assets (Global network match)`);
-        buildRepoFilters();
+        // buildRepoFilters(); (Removed legacy filter)
         updateStats();
         renderAssets();
       }
@@ -1566,8 +1636,10 @@ window.onload = async () => {
   loadCachedAssets();
   updateRatePill();
   
-  // Feature: Auto-preload broad results if no cache exists and token is ready
-  if (allAssets.length === 0 && document.getElementById('ghToken').value.trim()) {
+  // Feature: Auto-preload broad results if no cache exists and a valid token is present
+  const hasToken = document.getElementById('ghToken').value.trim();
+  if (allAssets.length === 0 && hasToken) {
+    setResultCount('Initializing global asset index...');
     performGlobalSearch();
   }
 };
