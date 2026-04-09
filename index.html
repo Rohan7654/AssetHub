@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AssetHub — GitHub Asset Browser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<script src="./tailwind.js"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          mono: ['JetBrains Mono', 'monospace'],
+          display: ['Syne', 'sans-serif'],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0d1117;
+    --surface2: #161b22;
+    --surface3: #21262d;
+    --border: #30363d;
+    --accent: #39d353;
+    --accent2: #58a6ff;
+    --accent3: #f78166;
+    --accent4: #e3b341;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --subtle: #484f58;
+  }
+
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+body {
+background: var(--bg);
+color: var(--text);
+font-family: 'JetBrains Mono', monospace;
+min-height: 100vh;
+transition: background 0.3s, color 0.3s;
+}
+
+/* Noise overlay */
+.noise {
+  position: fixed; inset: 0; z-index: 9998;
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+  opacity: 0.05; pointer-events: none;
+}
+
+/* Scanline overlay */
+body::before {
+content: '';
+position: fixed;
+inset: 0;
+background: repeating-linear-gradient(
+0deg,
+transparent,
+transparent 2px,
+rgba(0,0,0,0.03) 2px,
+rgba(0,0,0,0.03) 4px
+);
+pointer-events: none;
+z-index: 9999;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--subtle); }
+
+/* NAVBAR */
+.navbar {
+position: sticky; top: 0; z-index: 100;
+background: rgba(8,12,16,0.85);
+backdrop-filter: blur(20px);
+border-bottom: 1px solid var(--border);
+padding: 0 1.5rem;
+height: 60px;
+display: flex; align-items: center; gap: 1.5rem;
+transition: background 0.3s;
+}
+
+
+.logo {
+font-family: 'Syne', sans-serif;
+font-weight: 800;
+font-size: 1.25rem;
+color: var(--accent);
+letter-spacing: -0.02em;
+white-space: nowrap;
+display: flex; align-items: center; gap: 0.5rem;
+flex-shrink: 0;
+}
+.logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+/* SEARCH */
+.search-wrap {
+flex: 1;
+position: relative;
+max-width: 480px;
+}
+.search-input {
+width: 100%;
+background: var(--surface2);
+border: 1px solid var(--border);
+border-radius: 8px;
+padding: 0.5rem 1rem 0.5rem 2.5rem;
+font-family: 'JetBrains Mono', monospace;
+font-size: 0.8rem;
+color: var(--text);
+outline: none;
+transition: border-color 0.2s, box-shadow 0.2s;
+}
+.search-input:focus {
+border-color: var(--accent);
+box-shadow: 0 0 0 3px rgba(57,211,83,0.15);
+}
+.search-icon {
+position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%);
+color: var(--muted); pointer-events: none;
+}
+.search-clear {
+position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+color: var(--muted); cursor: pointer; display: none;
+background: none; border: none; padding: 0;
+}
+.search-clear:hover { color: var(--text); }
+
+/* GITHUB INPUT */
+.gh-input-wrap {
+display: flex; align-items: center; gap: 0.5rem;
+flex-shrink: 0;
+}
+.gh-input {
+background: var(--surface2);
+border: 1px solid var(--border);
+border-radius: 8px;
+padding: 0.45rem 0.75rem;
+font-family: 'JetBrains Mono', monospace;
+font-size: 0.75rem;
+color: var(--text);
+outline: none;
+width: 200px;
+transition: border-color 0.2s;
+}
+.gh-input:focus { border-color: var(--accent2); }
+.gh-input::placeholder { color: var(--muted); }
+
+.btn {
+display: inline-flex; align-items: center; gap: 0.4rem;
+padding: 0.45rem 0.9rem;
+border-radius: 8px;
+font-family: 'JetBrains Mono', monospace;
+font-size: 0.75rem;
+font-weight: 600;
+cursor: pointer;
+border: none;
+transition: all 0.2s;
+white-space: nowrap;
+}
+.btn-primary {
+background: var(--accent);
+color: #000;
+}
+.btn-primary:hover { filter: brightness(1.15); }
+.btn-ghost {
+background: var(--surface2);
+color: var(--text);
+border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+/* LAYOUT */
+.layout { display: flex; min-height: calc(100vh - 60px); }
+
+/* SIDEBAR */
+.sidebar {
+width: 260px;
+flex-shrink: 0;
+background: var(--surface);
+border-right: 1px solid var(--border);
+padding: 1.25rem;
+position: sticky;
+top: 60px;
+height: calc(100vh - 60px);
+overflow-y: auto;
+transition: transform 0.3s, background 0.3s;
+}
+
+.filter-section { margin-bottom: 1.5rem; }
+.filter-title {
+font-family: 'Syne', sans-serif;
+font-size: 0.7rem;
+font-weight: 700;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+color: var(--muted);
+margin-bottom: 0.75rem;
+display: flex; justify-content: space-between; align-items: center;
+}
+.filter-title button {
+background: none; border: none; color: var(--accent2);
+font-family: 'JetBrains Mono', monospace;
+font-size: 0.65rem; cursor: pointer;
+}
+
+.chip-group { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chip {
+padding: 0.3rem 0.7rem;
+border-radius: 6px;
+border: 1px solid var(--border);
+background: var(--surface2);
+color: var(--muted);
+font-size: 0.7rem;
+cursor: pointer;
+transition: all 0.15s;
+user-select: none;
+display: flex; align-items: center; gap: 0.35rem;
+}
+.chip:hover { border-color: var(--accent); color: var(--text); }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+.chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.sort-select {
+width: 100%;
+background: var(--surface2);
+border: 1px solid var(--border);
+border-radius: 8px;
+padding: 0.45rem 0.75rem;
+font-family: 'JetBrains Mono', monospace;
+font-size: 0.75rem;
+color: var(--text);
+outline: none;
+cursor: pointer;
+}
+
+/* MAIN */
+.main { flex: 1; padding: 1.5rem; min-width: 0; }
+
+.toolbar {
+display: flex; align-items: center; justify-content: space-between;
+margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap;
+}
+.result-count {
+font-size: 0.75rem; color: var(--muted);
+}
+.result-count span { color: var(--accent); font-weight: 600; }
+
+.view-btns { display: flex; gap: 0.4rem; }
+.view-btn {
+width: 32px; height: 32px;
+display: flex; align-items: center; justify-content: center;
+border-radius: 6px; border: 1px solid var(--border);
+background: var(--surface2);
+cursor: pointer; color: var(--muted);
+transition: all 0.15s;
+}
+.view-btn:hover, .view-btn.active { border-color: var(--accent); color: var(--accent); }
+
+/* GRID */
+.asset-grid {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+gap: 1rem;
+}
+.asset-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* CARD */
+.card {
+background: var(--surface);
+border: 1px solid var(--border);
+border-radius: 12px;
+padding: 1.1rem;
+position: relative;
+overflow: hidden;
+transition: all 0.2s;
+cursor: default;
+animation: fadeUp 0.4s ease both;
+}
+.card:hover {
+border-color: var(--accent);
+transform: translateY(-2px);
+box-shadow: 0 8px 32px rgba(57,211,83,0.08), 0 2px 8px rgba(0,0,0,0.3);
+}
+.card::before {
+content: '';
+position: absolute; inset: 0;
+background: linear-gradient(135deg, rgba(57,211,83,0.03) 0%, transparent 60%);
+pointer-events: none;
+opacity: 0;
+transition: opacity 0.2s;
+}
+.card:hover::before { opacity: 1; }
+
+@keyframes fadeUp {
+from { opacity: 0; transform: translateY(16px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.9rem; }
+
+.type-badge {
+padding: 0.2rem 0.55rem;
+border-radius: 5px;
+font-size: 0.65rem;
+font-weight: 700;
+letter-spacing: 0.05em;
+text-transform: uppercase;
+}
+
+.badge-exe { background: rgba(247,129,102,0.18); color: #f78166; border: 1px solid rgba(247,129,102,0.3); }
+.badge-apk { background: rgba(57,211,83,0.18); color: #39d353; border: 1px solid rgba(57,211,83,0.3); }
+.badge-pdf { background: rgba(247,129,102,0.18); color: #ff6b6b; border: 1px solid rgba(247,129,102,0.3); }
+.badge-txt { background: rgba(88,166,255,0.18); color: #58a6ff; border: 1px solid rgba(88,166,255,0.3); }
+.badge-zip { background: rgba(227,179,65,0.18); color: #e3b341; border: 1px solid rgba(227,179,65,0.3); }
+.badge-img { background: rgba(188,140,255,0.18); color: #bc8cff; border: 1px solid rgba(188,140,255,0.3); }
+.badge-doc { background: rgba(88,166,255,0.18); color: #79c0ff; border: 1px solid rgba(88,166,255,0.3); }
+.badge-other { background: rgba(125,133,144,0.18); color: #7d8590; border: 1px solid rgba(125,133,144,0.3); }
+
+.new-badge {
+background: var(--accent);
+color: #000;
+font-size: 0.6rem;
+font-weight: 700;
+padding: 0.15rem 0.45rem;
+border-radius: 4px;
+letter-spacing: 0.05em;
+text-transform: uppercase;
+}
+
+.file-icon {
+font-size: 2.5rem;
+display: block;
+text-align: center;
+margin: 0.5rem 0 0.9rem;
+line-height: 1;
+}
+
+.card-name {
+font-size: 0.8rem;
+font-weight: 600;
+color: var(--text);
+margin-bottom: 0.25rem;
+word-break: break-all;
+display: -webkit-box;
+-webkit-line-clamp: 2;
+-webkit-box-orient: vertical;
+overflow: hidden;
+}
+
+.card-repo {
+font-size: 0.7rem;
+color: var(--accent2);
+margin-bottom: 0.75rem;
+display: flex; align-items: center; gap: 0.3rem;
+}
+
+.card-meta {
+display: flex; justify-content: space-between; align-items: center;
+font-size: 0.68rem; color: var(--muted);
+margin-bottom: 0.85rem;
+border-top: 1px solid var(--border);
+padding-top: 0.75rem;
+}
+
+.card-actions { display: flex; gap: 0.5rem; }
+.action-btn {
+flex: 1;
+display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+padding: 0.45rem;
+border-radius: 7px;
+font-family: 'JetBrains Mono', monospace;
+font-size: 0.7rem;
+font-weight: 600;
+cursor: pointer;
+border: 1px solid var(--border);
+background: var(--surface2);
+color: var(--text);
+transition: all 0.15s;
+text-decoration: none;
+}
+.action-btn:hover { border-color: var(--accent); color: var(--accent); }
+.action-btn.download { background: var(--accent); border-color: var(--accent); color: #000; }
+.action-btn.download:hover { filter: brightness(1.15); }
+.action-btn.icon-only { flex: 0 0 36px; }
+
+/* LIST ROW */
+.list-row {
+background: var(--surface);
+border: 1px solid var(--border);
+border-radius: 10px;
+padding: 0.75rem 1rem;
+display: flex; align-items: center; gap: 1rem;
+transition: all 0.15s;
+animation: fadeUp 0.3s ease both;
+}
+.list-row:hover { border-color: var(--accent); background: var(--surface2); }
+.list-row .file-icon { font-size: 1.5rem; margin: 0; flex-shrink: 0; }
+.list-row .card-name { margin: 0; flex: 1; -webkit-line-clamp: 1; }
+.list-row .card-repo { margin: 0; flex-shrink: 0; }
+.list-row .type-badge { flex-shrink: 0; }
+.list-row .card-meta { border: none; padding: 0; margin: 0; flex-shrink: 0; gap: 1rem; }
+.list-row .card-actions { flex-shrink: 0; }
+
+/* SKELETON */
+.skeleton {
+background: linear-gradient(90deg, var(--surface2) 25%, var(--surface3) 50%, var(--surface2) 75%);
+background-size: 200% 100%;
+animation: shimmer 1.5s infinite;
+border-radius: 6px;
+}
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* EMPTY STATE */
+.empty-state {
+text-align: center;
+padding: 4rem 2rem;
+color: var(--muted);
+}
+.empty-icon { font-size: 4rem; margin-bottom: 1rem; opacity: 0.4; }
+.empty-title { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text); }
+.empty-sub { font-size: 0.75rem; }
+
+/* TOAST */
+.toast {
+position: fixed; bottom: 1.5rem; right: 1.5rem;
+background: var(--surface2);
+border: 1px solid var(--accent);
+border-radius: 10px;
+padding: 0.75rem 1rem;
+font-size: 0.75rem;
+color: var(--text);
+z-index: 1000;
+display: flex; align-items: center; gap: 0.5rem;
+animation: slideIn 0.3s ease;
+box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+@keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+/* MODAL */
+.modal-overlay {
+position: fixed; inset: 0;
+background: rgba(0,0,0,0.8);
+backdrop-filter: blur(8px);
+z-index: 500;
+display: flex; align-items: center; justify-content: center;
+padding: 1rem;
+animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.modal {
+background: var(--surface);
+border: 1px solid var(--border);
+border-radius: 16px;
+width: 100%; max-width: 560px;
+max-height: 85vh;
+overflow-y: auto;
+padding: 1.5rem;
+animation: scaleIn 0.2s ease;
+}
+@keyframes scaleIn { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+.modal-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; }
+.modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.25rem; line-height: 1; }
+.modal-close:hover { color: var(--text); }
+.info-row { display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--border); font-size: 0.75rem; }
+.info-row:last-of-type { border-bottom: none; }
+.info-label { color: var(--muted); }
+.info-val { color: var(--text); font-weight: 600; text-align: right; word-break: break-all; max-width: 60%; }
+
+/* WARNING */
+.warning-box {
+background: rgba(247,129,102,0.1);
+border: 1px solid rgba(247,129,102,0.3);
+border-radius: 8px;
+padding: 0.75rem;
+font-size: 0.72rem;
+color: #f78166;
+margin-top: 1rem;
+display: flex; gap: 0.5rem;
+}
+
+/* MOBILE SIDEBAR TOGGLE */
+.sidebar-toggle {
+display: none;
+position: fixed; bottom: 1.5rem; left: 1.5rem;
+z-index: 200;
+background: var(--accent);
+color: #000;
+border: none;
+border-radius: 50%;
+width: 48px; height: 48px;
+font-size: 1.2rem;
+cursor: pointer;
+box-shadow: 0 4px 16px rgba(57,211,83,0.4);
+}
+.sidebar-backdrop {
+display: none;
+position: fixed; inset: 0;
+background: rgba(0,0,0,0.7);
+z-index: 99;
+}
+
+/* PROGRESS BAR */
+.progress-bar {
+position: fixed; top: 60px; left: 0; right: 0;
+height: 2px; background: var(--border); z-index: 200; display: none;
+}
+.progress-fill {
+height: 100%;
+background: linear-gradient(90deg, var(--accent), var(--accent2));
+transition: width 0.3s ease;
+width: 0%;
+}
+
+/* STATS BAR */
+.stats-bar {
+display: flex; gap: 1.5rem; flex-wrap: wrap;
+padding: 0.75rem 1.5rem;
+background: var(--surface);
+border-bottom: 1px solid var(--border);
+font-size: 0.7rem; color: var(--muted);
+}
+.stat-item { display: flex; align-items: center; gap: 0.4rem; }
+.stat-val { color: var(--text); font-weight: 600; }
+
+/* TOKEN INPUT */
+.token-wrap {
+position: relative;
+display: flex; align-items: center;
+}
+.token-input {
+background: var(--surface2);
+border: 1px solid var(--border);
+border-radius: 8px;
+padding: 0.45rem 2rem 0.45rem 0.75rem;
+font-family: 'JetBrains Mono', monospace;
+font-size: 0.75rem;
+color: var(--text);
+outline: none;
+width: 160px;
+transition: border-color 0.2s, box-shadow 0.2s;
+letter-spacing: 0.05em;
+}
+.token-input:focus { border-color: var(--accent4); box-shadow: 0 0 0 3px rgba(227,179,65,0.12); }
+.token-input.has-token { border-color: var(--accent); }
+.token-eye {
+position: absolute; right: 0.55rem;
+background: none; border: none;
+color: var(--muted); cursor: pointer;
+font-size: 0.85rem; line-height: 1; padding: 0;
+}
+.token-eye:hover { color: var(--text); }
+.rate-pill {
+font-size: 0.65rem;
+padding: 0.2rem 0.5rem;
+border-radius: 20px;
+border: 1px solid var(--border);
+color: var(--muted);
+white-space: nowrap;
+display: flex; align-items: center; gap: 0.3rem;
+cursor: default;
+}
+.rate-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.rate-pill.ok .rate-dot { background: var(--accent); }
+.rate-pill.warn .rate-dot { background: var(--accent4); }
+.rate-pill.bad .rate-dot { background: var(--accent3); }
+
+/* SEARCH HIGHLIGHT */
+mark {
+background: rgba(57,211,83,0.3);
+color: var(--accent);
+border-radius: 2px;
+padding: 0 1px;
+}
+
+/* HISTORY BAR */
+.history-bar {
+  display: flex; gap: 0.5rem; overflow-x: auto;
+  padding: 0.5rem 0; margin-top: 0.25rem;
+  scrollbar-width: none;
+}
+.history-bar::-webkit-scrollbar { display: none; }
+.history-chip {
+  padding: 0.2rem 0.6rem; border-radius: 20px;
+  background: var(--surface3); border: 1px solid var(--border);
+  color: var(--muted); font-size: 0.65rem; cursor: pointer;
+  white-space: nowrap; transition: all 0.2s;
+}
+.history-chip:hover { border-color: var(--accent2); color: var(--text); }
+
+/* IMAGE PREVIEW */
+.card-image {
+  width: 100%; height: 120px;
+  background: var(--surface2);
+  border-radius: 8px; margin-bottom: 0.8rem;
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.card-image img {
+  width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transition: opacity 0.5s ease;
+}
+.card-image img.loaded { opacity: 1; }
+.card-image::after {
+  content: '⚡ PREVIEW';
+  position: absolute; top: 0.5rem; right: 0.5rem;
+  font-size: 0.5rem; background: rgba(0,0,0,0.6);
+  padding: 0.1rem 0.3rem; border-radius: 3px; color: var(--accent);
+}
+
+@media (max-width: 768px) {
+.sidebar {
+position: fixed; left: 0; top: 60px;
+transform: translateX(-100%);
+z-index: 100; height: calc(100vh - 60px);
+}
+.sidebar.open { transform: translateX(0); }
+.sidebar-backdrop.open { display: block; }
+.sidebar-toggle { display: flex; align-items: center; justify-content: center; }
+.gh-input { width: 140px; }
+.token-input { width: 120px; }
+.rate-pill { display: none; }
+.main { padding: 1rem; }
+.stats-bar { padding: 0.5rem 1rem; gap: 0.75rem; }
+}
+</style>
+
+</head>
+<body>
+<div class="noise"></div>
+
+<!-- NAVBAR -->
+
+<nav class="navbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    AssetHub
+  </div>
+
+  <div class="gh-input-wrap" style="flex: 1; justify-content: flex-end;">
+    <div class="search-wrap" style="flex: 1; max-width: 480px; margin: 0; display: block;">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="globalSearchQuery" class="search-input" placeholder="Global search: e.g. filename:app.apk" value="" onkeydown="if(event.key==='Enter') performGlobalSearch()" />
+      <div id="historyBar" class="history-bar"></div>
+    </div>
+
+    <div class="token-wrap" title="Paste your GitHub Personal Access Token (REQUIRED for Global Search)">
+      <input type="password" id="ghToken" class="token-input" placeholder="ghp_token (required)" oninput="onTokenChange(this)" autocomplete="off" />
+      <button class="token-eye" id="tokenEye" onclick="toggleTokenVisibility()" title="Show/hide token">👁</button>
+    </div>
+
+    <div style="position: relative;">
+      <button class="btn" style="background:transparent; border:1px solid var(--border); padding: 0.5rem;" onclick="document.getElementById('advancedFilters').style.display = document.getElementById('advancedFilters').style.display === 'none' ? 'flex' : 'none'" title="Advanced Filters">⚙️</button>
+      <div class="advanced-filters" id="advancedFilters" style="display:none; position: absolute; top: calc(100% + 5px); right: 0; background: var(--surface2); padding: 1rem; border: 1px solid var(--border); border-radius: 8px; z-index: 100; flex-direction: column; gap: 0.5rem; min-width: 250px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        <div style="font-size:0.8rem; color:var(--muted)">Author (user:name)</div>
+        <input type="text" id="advAuthor" class="search-input" style="width:100%" placeholder="e.g. torvalds" />
+        <div style="font-size:0.8rem; color:var(--muted); margin-top: 0.5rem;">Repository (repo:name)</div>
+        <input type="text" id="advRepo" class="search-input" style="width:100%" placeholder="e.g. facebook/react" />
+        <div style="font-size:0.8rem; color:var(--muted); margin-top: 0.5rem;">Language (language:name)</div>
+        <input type="text" id="advLang" class="search-input" style="width:100%" placeholder="e.g. python" />
+      </div>
+    </div>
+    
+    <div class="rate-pill" id="ratePill" title="GitHub API rate limit remaining">
+      <div class="rate-dot"></div>
+      <span id="rateText">—/min</span>
+    </div>
+    
+    <button class="btn btn-primary" onclick="performGlobalSearch()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12h8M12 8l4 4-4 4"/></svg>
+      Search
+    </button>
+  </div>
+</nav>
+
+<!-- PROGRESS BAR -->
+
+<div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+
+<!-- STATS BAR -->
+
+<div class="stats-bar" id="statsBar" style="display:none">
+  <div class="stat-item">📦 <span class="stat-val" id="statRepos">0</span> repos scanned</div>
+  <div class="stat-item">📄 <span class="stat-val" id="statFiles">0</span> assets found</div>
+  <div class="stat-item">💾 <span class="stat-val" id="statSize">0 B</span> total size</div>
+  <div class="stat-item">🕒 <span class="stat-val" id="statDate">—</span> last updated</div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+
+<div class="filter-section">
+  <div class="filter-title">
+    File Type
+    <button onclick="clearFilter('type')">clear</button>
+  </div>
+  <div class="chip-group" id="typeFilters">
+    <div class="chip active" data-filter="type" data-val="all" onclick="toggleFilter(this,'type')">All</div>
+    <div class="chip" data-filter="type" data-val="favorites" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#e3b341"></span>⭐ Favorites</div>
+    <div class="chip" data-filter="type" data-val="exe" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#f78166"></span>EXE</div>
+    <div class="chip" data-filter="type" data-val="apk" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#39d353"></span>APK</div>
+    <div class="chip" data-filter="type" data-val="pdf" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#ff6b6b"></span>PDF</div>
+    <div class="chip" data-filter="type" data-val="txt" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#58a6ff"></span>TXT</div>
+    <div class="chip" data-filter="type" data-val="zip" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#e3b341"></span>ZIP</div>
+    <div class="chip" data-filter="type" data-val="img" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#bc8cff"></span>IMG</div>
+    <div class="chip" data-filter="type" data-val="doc" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#79c0ff"></span>DOC</div>
+    <div class="chip" data-filter="type" data-val="other" onclick="toggleFilter(this,'type')"><span class="chip-dot" style="background:#7d8590"></span>Other</div>
+  </div>
+</div>
+
+<div class="filter-section">
+  <div class="filter-title">
+    Repository
+    <button onclick="clearFilter('repo')">clear</button>
+  </div>
+  <div class="chip-group" id="repoFilters">
+    <div class="chip active" data-filter="repo" data-val="all" onclick="toggleFilter(this,'repo')">All Repos</div>
+  </div>
+</div>
+
+<div class="filter-section">
+  <div class="filter-title">Sort By</div>
+  <select class="sort-select" id="sortSelect" onchange="renderAssets()">
+    <option value="name">Name (A→Z)</option>
+    <option value="name_desc">Name (Z→A)</option>
+    <option value="size_desc">Size (Largest)</option>
+    <option value="size_asc">Size (Smallest)</option>
+    <option value="date_desc">Newest First</option>
+    <option value="date_asc">Oldest First</option>
+    <option value="repo">By Repository</option>
+  </select>
+</div>
+
+<div class="filter-section">
+  <div class="filter-title">Recency</div>
+  <div class="chip-group">
+    <div class="chip active" data-filter="recency" data-val="all" onclick="toggleFilter(this,'recency')">All Time</div>
+    <div class="chip" data-filter="recency" data-val="week" onclick="toggleFilter(this,'recency')">This Week</div>
+    <div class="chip" data-filter="recency" data-val="month" onclick="toggleFilter(this,'recency')">This Month</div>
+    <div class="chip" data-filter="recency" data-val="year" onclick="toggleFilter(this,'recency')">This Year</div>
+  </div>
+</div>
+
+  </aside>
+
+  <!-- MAIN CONTENT -->
+
+  <main class="main">
+    <div class="toolbar">
+      <div class="result-count" id="resultCount">Ready — enter a file search query and click Search</div>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <div class="view-btns">
+          <div class="view-btn active" id="gridBtn" onclick="setView('grid')" title="Grid view">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </div>
+          <div class="view-btn" id="listBtn" onclick="setView('list')" title="List view">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<div id="assetContainer">
+  <!-- WELCOME STATE -->
+  <div class="empty-state">
+    <div class="empty-icon">🗄️</div>
+    <div class="empty-title">Global GitHub File Search</div>
+    <div class="empty-sub">Enter a search query (e.g. <code>filename:app.apk</code> or <code>extension:exe</code>) to scan all of GitHub. A Personal Access Token is required!</div>
+  </div>
+</div>
+
+  </main>
+</div>
+
+<!-- MOBILE SIDEBAR TOGGLE -->
+
+<button class="sidebar-toggle" onclick="toggleSidebar()">⚙</button>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
+
+<!-- ONBOARDING MODAL -->
+<div class="modal-overlay" id="onboardOverlay" style="display:none">
+  <div class="modal" style="max-width:400px; text-align:center;">
+    <div style="font-size: 3rem; margin-bottom: 0.5rem;">👋</div>
+    <h3 style="margin: 0 0 0.5rem">Welcome to AssetHub</h3>
+    <p style="color: var(--muted); margin: 0 0 1.5rem; font-size: 0.9rem; line-height: 1.4;">
+      To search the global GitHub network, you need a Personal Access Token (PAT). This is securely stored locally in your browser.
+    </p>
+    <div class="gh-input-wrap" style="justify-content: center; margin-bottom: 1.5rem;">
+      <input type="password" id="onboardToken" class="search-input" placeholder="ghp_xxxx..." autocomplete="off" style="width: 100%; border-radius: 6px; padding: 0.6rem 1rem; border: 1px solid var(--border); background: var(--bg);" onkeydown="if(event.key==='Enter') saveOnboardToken()" />
+    </div>
+    <button class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.7rem;" onclick="saveOnboardToken()">
+      Save Token & Continue
+    </button>
+  </div>
+</div>
+
+<!-- MODAL -->
+
+<div class="modal-overlay" id="modalOverlay" style="display:none" onclick="closeModal(event)">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+// ===================== STATE =====================
+let allAssets = [];
+let allFavorites = JSON.parse(localStorage.getItem('ghFavorites') || '[]');
+let searchHistory = JSON.parse(localStorage.getItem('ghSearchHistory') || '[]');
+let filters = { type: 'all', repo: 'all', recency: 'all' };
+let currentView = 'grid';
+let currentPage = 1;
+const ITEMS_PER_PAGE = 36;
+
+function toggleFav(sha, evt) {
+  if (evt) evt.stopPropagation();
+  const index = allFavorites.findIndex(f => f.sha === sha);
+  if (index > -1) {
+    allFavorites.splice(index, 1);
+  } else {
+    const asset = allAssets.find(a => a.sha === sha) || allFavorites.find(a => a.sha === sha);
+    if (asset) allFavorites.push(asset);
+  }
+  localStorage.setItem('ghFavorites', JSON.stringify(allFavorites));
+  renderAssets(false);
+}
+
+// ===================== FILE TYPE CONFIG =====================
+const typeConfig = {
+  exe:  { label:'EXE',  icon:'💿', badge:'badge-exe', exts:['exe','msi','bat','cmd','sh','bin','run','dmg','app'] },
+  apk:  { label:'APK',  icon:'📱', badge:'badge-apk', exts:['apk','ipa','aab'] },
+  pdf:  { label:'PDF',  icon:'📕', badge:'badge-pdf', exts:['pdf'] },
+  txt:  { label:'TXT',  icon:'📄', badge:'badge-txt', exts:['txt','md','rst','log','csv','json','xml','yaml','yml','ini','cfg','conf','env','toml'] },
+  zip:  { label:'ZIP',  icon:'📦', badge:'badge-zip', exts:['zip','tar','gz','rar','7z','bz2','xz','tgz'] },
+  img:  { label:'IMG',  icon:'🖼️', badge:'badge-img', exts:['png','jpg','jpeg','gif','svg','webp','ico','bmp','tiff'] },
+  doc:  { label:'DOC',  icon:'📝', badge:'badge-doc', exts:['doc','docx','xls','xlsx','ppt','pptx','odt','ods','odp'] },
+  other:{ label:'?',    icon:'📎', badge:'badge-other', exts:[] },
+};
+
+function getFileType(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  for (const [key, cfg] of Object.entries(typeConfig)) {
+    if (key !== 'other' && cfg.exts.includes(ext)) return key;
+  }
+  return 'other';
+}
+
+// Target extensions to look for
+const TARGET_EXTS = new Set([
+  'exe','msi','apk','ipa','pdf','txt','md','rst','log','csv','json','xml',
+  'zip','tar','gz','rar','7z','doc','docx','xls','xlsx','ppt','pptx',
+  'png','jpg','jpeg','gif','svg','webp','ico','sh','bat','bin','dmg',
+  'yaml','yml','ini','cfg','toml','aab','deb','rpm','appimage'
+]);
+
+function isTargetFile(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  return TARGET_EXTS.has(ext);
+}
+
+// ===================== TOKEN & HEADERS =====================
+function getHeaders() {
+  const token = document.getElementById('ghToken').value.trim();
+  const headers = { 'Accept': 'application/vnd.github+json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
+function onTokenChange(input) {
+  input.classList.toggle('has-token', input.value.trim().length > 0);
+  localStorage.setItem('ghToken', input.value.trim());
+  updateRatePill();
+}
+
+async function loadCachedToken() {
+  const input = document.getElementById('ghToken');
+  const cached = localStorage.getItem('ghToken');
+  
+  if (cached) {
+    input.value = cached;
+    input.classList.add('has-token');
+  }
+
+  // Attempt to load from local .env if served via a local web server
+  try {
+    const resp = await fetch('.env');
+    if (resp.ok) {
+      const text = await resp.text();
+      const match = text.match(/GITHUB_API_KEY\s*=\s*(ghp_[a-zA-Z0-9]+)/i);
+      if (match && match[1]) {
+        input.value = match[1];
+        input.classList.add('has-token');
+        if (cached !== match[1]) {
+          localStorage.setItem('ghToken', match[1]);
+          updateRatePill();
+        }
+      }
+    }
+  } catch (e) {
+    // Silently ignore if running on file:// where fetch is blocked by CORS
+  }
+
+  // If after all checks there is still no token, show the onboarding screen
+  if (!input.value.trim()) {
+    document.getElementById('onboardOverlay').style.display = 'flex';
+  }
+}
+
+function saveOnboardToken() {
+  const val = document.getElementById('onboardToken').value.trim();
+  if(!val) return showToast('⚠️ Please enter a token');
+  
+  const mainInput = document.getElementById('ghToken');
+  mainInput.value = val;
+  mainInput.classList.add('has-token');
+  localStorage.setItem('ghToken', val);
+  
+  document.getElementById('onboardOverlay').style.display = 'none';
+  showToast('Token saved! Ready to search.');
+  updateRatePill();
+}
+
+function toggleTokenVisibility() {
+  const input = document.getElementById('ghToken');
+  const eye = document.getElementById('tokenEye');
+  if (input.type === 'password') { input.type = 'text'; eye.textContent = '🙈'; }
+  else { input.type = 'password'; eye.textContent = '👁'; }
+}
+
+async function updateRatePill() {
+  try {
+    const resp = await fetch('https://api.github.com/rate_limit', { headers: getHeaders() });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const limitInfo = data.resources.search || data.rate;
+    const { remaining, limit } = limitInfo;
+    const pill = document.getElementById('ratePill');
+    const text = document.getElementById('rateText');
+    text.textContent = `${remaining.toLocaleString()}/${limit.toLocaleString()} /min`;
+    pill.className = 'rate-pill';
+    if (remaining > limit * 0.5) pill.classList.add('ok');
+    else if (remaining > limit * 0.1) pill.classList.add('warn');
+    else pill.classList.add('bad');
+  } catch(e) { /* silent */ }
+}
+
+// ===================== GITHUB API =====================
+async function performGlobalSearch() {
+  const rawQuery = document.getElementById('globalSearchQuery').value.trim();
+  const token = document.getElementById('ghToken').value.trim();
+  
+  if (!token) return showToast('⚠️ GitHub Token (PAT) is REQUIRED for Global Search.');
+
+  // Parse rawQuery to ensure we search filenames, not file contents
+  let terms = rawQuery.split(/\s+/).filter(Boolean);
+  let parsedTerms = [];
+  
+  for (let t of terms) {
+    if (t.includes(':')) {
+       parsedTerms.push(t);
+    } else {
+       if (t.startsWith('.')) t = t.substring(1);
+       parsedTerms.push(`filename:${t}`);
+    }
+  }
+
+  // If no terms entered, try to use the selected filter to make a dummy search
+  if (parsedTerms.length === 0) {
+     if (filters.type && filters.type !== 'all' && filters.type !== 'other') {
+        const ext = typeConfig[filters.type].exts[0];
+        parsedTerms.push(`filename:${ext}`);
+     } else if (!filters.type || filters.type === 'all') {
+        // Blanket query to generate a broad mix of globally popular assets
+        parsedTerms.push("filename:apk OR filename:exe OR filename:zip OR filename:pdf OR filename:txt OR filename:png");
+     } else {
+        return showToast('⚠️ Enter a search query');
+     }
+  }
+
+  let apiQuery = parsedTerms.join(' ');
+
+  // Append type filter natively if not already present
+  if (filters.type && filters.type !== 'all' && filters.type !== 'other') {
+    if (!apiQuery.includes('extension:')) {
+      const primaryExt = typeConfig[filters.type].exts[0];
+      apiQuery += ` extension:${primaryExt}`;
+    }
+  }
+
+  // Append optional advanced GitHub search directives
+  const advAuthor = document.getElementById('advAuthor') ? document.getElementById('advAuthor').value.trim() : '';
+  const advRepo = document.getElementById('advRepo') ? document.getElementById('advRepo').value.trim() : '';
+  const advLang = document.getElementById('advLang') ? document.getElementById('advLang').value.trim() : '';
+
+  if (advAuthor) apiQuery += ` user:${advAuthor}`;
+  if (advRepo) apiQuery += ` repo:${advRepo}`;
+  if (advLang) apiQuery += ` language:${advLang}`;
+
+  allAssets = [];
+  showProgress(true);
+  setResultCount('Searching GitHub network...');
+  document.getElementById('statsBar').style.display = 'none';
+  showSkeletons();
+
+  const maxPages = 3;
+  let fetchedCount = 0;
+  
+  try {
+    saveSearchToHistory(rawQuery);
+    for (let page = 1; page <= maxPages; page++) {
+      setProgress(page * 25);
+      const searchResp = await fetch(`https://api.github.com/search/code?q=${encodeURIComponent(apiQuery)}&per_page=100&page=${page}`, { headers: getHeaders() });
+      
+      if (!searchResp.ok) {
+        if (searchResp.status === 401) throw new Error('Invalid token — check your GitHub PAT');
+        if (searchResp.status === 403) {
+          const resetTime = searchResp.headers.get('x-ratelimit-reset');
+          if (resetTime) {
+             const waitMs = (parseInt(resetTime) * 1000) - Date.now() + 1000;
+             if (waitMs > 0 && waitMs < 60000) { // Wait up to 1 minute smoothly instead of blocking entirely
+               setResultCount(`Pacing limits hit. Auto-resuming dynamically in ${Math.ceil(waitMs / 1000)}s...`);
+               await new Promise(r => setTimeout(r, waitMs));
+               page--; // Restart exactly at current page iteration
+               continue;
+             }
+          }
+          throw new Error('Global rate limit hit — please hold for 60 seconds');
+        }
+        if (searchResp.status === 422) throw new Error('Unprocessable query — check search syntax');
+        throw new Error('Network API error - Service may be unreachable');
+      }
+      
+      const searchData = await searchResp.json();
+      const items = searchData.items || [];
+      
+      if (items.length === 0) break;
+      
+      for (const item of items) {
+        const repo = item.repository;
+        let rawUrl = item.html_url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
+        
+        allAssets.push({
+          name: item.name,
+          path: item.path,
+          repo: repo.full_name,
+          repoUrl: repo.html_url,
+          size: null, // Code Search API doesn't return size
+          downloadUrl: rawUrl,
+          htmlUrl: item.html_url,
+          sha: item.sha,
+          type: getFileType(item.name),
+          ext: item.name.split('.').pop().toLowerCase(),
+          repoUpdated: new Date().toISOString(),
+          stars: 0,
+          isNew: true
+        });
+      }
+      
+      fetchedCount += items.length;
+      
+      if (items.length < 100 || searchData.incomplete_results) break;
+    }
+    
+    document.getElementById('statRepos').textContent = new Set(allAssets.map(a => a.repo)).size;
+    setProgress(100);
+
+    // Cache the fetched dataset to LocalStorage
+    if (allAssets.length > 0) {
+      localStorage.setItem('cachedAssets', JSON.stringify(allAssets));
+    }
+
+    buildRepoFilters();
+    updateStats();
+    renderAssets();
+    showToast(`✅ Found ${fetchedCount} assets across GitHub`);
+    updateRatePill();
+
+  } catch(err) {
+    showToast('❌ ' + err.message);
+    setResultCount('Error — try again');
+    document.getElementById('assetContainer').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-title">Oops!</div>
+        <div class="empty-sub">${err.message}</div>
+      </div>`;
+  } finally {
+    setTimeout(() => showProgress(false), 600);
+  }
+}
+
+function isNewFile(dateStr) {
+  const d = new Date(dateStr);
+  const diff = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
+  return diff <= 7;
+}
+
+// ===================== FILTERS =====================
+function toggleFilter(el, group) {
+  // Deactivate others in group
+  document.querySelectorAll(`[data-filter="${group}"]`).forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  filters[group] = el.dataset.val;
+  
+  // If we change the main file type, immediately execute a global search if authenticated
+  // Skip global search for 'favorites' as it's a local filter
+  if (group === 'type' && filters.type !== 'favorites' && document.getElementById('ghToken').value.trim()) {
+    performGlobalSearch();
+  } else {
+    renderAssets();
+  }
+}
+
+function clearFilter(group) {
+  const all = document.querySelector(`[data-filter="${group}"][data-val="all"]`);
+  if (all) { all.click(); return; }
+  filters[group] = 'all';
+  
+  if (group === 'type' && filters.type !== 'favorites' && document.getElementById('ghToken').value.trim()) {
+    performGlobalSearch();
+  } else {
+    renderAssets();
+  }
+}
+
+function buildRepoFilters() {
+  const repos = [...new Set(allAssets.map(a => a.repo))].sort();
+  const container = document.getElementById('repoFilters');
+  container.innerHTML = `<div class="chip active" data-filter="repo" data-val="all" onclick="toggleFilter(this,'repo')">All Repos</div>`;
+  repos.forEach(r => {
+    const d = document.createElement('div');
+    d.className = 'chip';
+    d.dataset.filter = 'repo';
+    d.dataset.val = r;
+    d.textContent = r.length > 14 ? r.slice(0,13)+'…' : r;
+    d.title = r;
+    d.onclick = function(){ toggleFilter(this, 'repo'); };
+    container.appendChild(d);
+  });
+}
+
+// ===================== SORT & FILTER =====================
+function getFiltered() {
+  let assets = filters.type === 'favorites' ? [...allFavorites] : [...allAssets];
+
+  // Type filter
+  if (filters.type !== 'all' && filters.type !== 'favorites') assets = assets.filter(a => a.type === filters.type);
+
+  // Repo filter
+  if (filters.repo !== 'all') assets = assets.filter(a => a.repo === filters.repo);
+
+  // Recency
+  const now = Date.now();
+  if (filters.recency === 'week') assets = assets.filter(a => (now - new Date(a.repoUpdated).getTime()) < 7*24*3600*1000);
+  if (filters.recency === 'month') assets = assets.filter(a => (now - new Date(a.repoUpdated).getTime()) < 30*24*3600*1000);
+  if (filters.recency === 'year') assets = assets.filter(a => (now - new Date(a.repoUpdated).getTime()) < 365*24*3600*1000);
+
+  // Sort
+  const sort = document.getElementById('sortSelect').value;
+  assets.sort((a,b) => {
+    switch(sort) {
+      case 'name': return a.name.localeCompare(b.name);
+      case 'name_desc': return b.name.localeCompare(a.name);
+      case 'size_desc': return b.size - a.size;
+      case 'size_asc': return a.size - b.size;
+      case 'date_desc': return new Date(b.repoUpdated) - new Date(a.repoUpdated);
+      case 'date_asc': return new Date(a.repoUpdated) - new Date(b.repoUpdated);
+      case 'repo': return a.repo.localeCompare(b.repo) || a.name.localeCompare(b.name);
+      default: return 0;
+    }
+  });
+
+  return assets;
+}
+
+// ===================== RENDER =====================
+function renderAssets(resetPage = true) {
+  if (resetPage) currentPage = 1;
+  const assets = getFiltered();
+  const container = document.getElementById('assetContainer');
+
+  setResultCount(
+    allAssets.length === 0 && filters.type !== 'favorites'
+      ? 'Ready — enter a search query and click Search'
+      : (filters.type === 'favorites') 
+        ? `Showing <span>${Math.min(currentPage * ITEMS_PER_PAGE, assets.length)}</span> favorited assets`
+        : `Showing <span>${Math.min(currentPage * ITEMS_PER_PAGE, assets.length)}</span> of <span>${assets.length}</span> matches (out of <span>${allAssets.length}</span> global results)`
+  );
+
+  // If app is empty and we aren't looking at favorites, show splash
+  if (allAssets.length === 0 && filters.type !== 'favorites') {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🗄️</div>
+        <div class="empty-title">Global GitHub File Search</div>
+        <div class="empty-sub">Enter a search query (e.g. <code>filename:app.apk</code> or <code>extension:exe</code>) to scan all of GitHub. A Personal Access Token is required!</div>
+      </div>`;
+    return;
+  }
+
+  if (assets.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">${filters.type === 'favorites' ? 'No favorites yet' : 'No matches found'}</div>
+        <div class="empty-sub">${filters.type === 'favorites' ? 'Stars assets to see them here.' : 'Try different filters or a broader search term.'}</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = currentView === 'grid' ? 'asset-grid' : 'asset-list';
+
+  const visibleAssets = assets.slice(0, currentPage * ITEMS_PER_PAGE);
+
+  visibleAssets.forEach((asset, i) => {
+    const card = currentView === 'grid' ? makeCard(asset, i) : makeRow(asset, i);
+    grid.appendChild(card);
+  });
+
+  container.appendChild(grid);
+
+  // Pagination Load More button
+  if (visibleAssets.length < assets.length) {
+    const wrap = document.createElement('div');
+    wrap.style.textAlign = 'center';
+    wrap.style.marginTop = '2rem';
+    wrap.style.width = '100%';
+    wrap.innerHTML = `<button class="btn btn-primary" style="margin: 0 auto; display: inline-flex;" onclick="loadMore()">Load More ↓</button>`;
+    container.appendChild(wrap);
+  }
+}
+
+function loadMore() {
+  currentPage++;
+  renderAssets(false);
+}
+
+function highlight(text) {
+  return escHtml(text);
+}
+
+function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function makeCard(asset, i) {
+  const cfg = typeConfig[asset.type];
+  const isImg = asset.type === 'img';
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.style.animationDelay = `${Math.min(i * 30, 300)}ms`;
+  
+  let imgHtml = '';
+  if (isImg) {
+    imgHtml = `
+      <div class="card-image">
+        <img src="${asset.downloadUrl}" loading="lazy" onload="this.classList.add('loaded')" onerror="this.parentElement.style.display='none'">
+      </div>`;
+  }
+
+  div.innerHTML = `
+    <div class="card-header">
+      <span class="type-badge ${cfg.badge}">${cfg.label}</span>
+      ${asset.isNew ? '<span class="new-badge">NEW</span>' : ''}
+    </div>
+    ${imgHtml}
+    ${!isImg ? `<span class="file-icon">${cfg.icon}</span>` : ''}
+    <div class="card-name">${highlight(asset.name)}</div>
+    <div class="card-repo">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      ${highlight(asset.repo)}
+    </div>
+    <div class="card-meta">
+      <span>${formatSize(asset.size)}</span>
+      <span>${formatDate(asset.repoUpdated)}</span>
+    </div>
+    <div class="card-actions">
+      <button class="action-btn icon-only" onclick="toggleFav('${asset.sha}', event)" title="Toggle Favorite">
+        ${allFavorites.some(f => f.sha === asset.sha) ? '⭐' : '☆'}
+      </button>
+      <button class="action-btn download" onclick="triggerDownload('${asset.downloadUrl}', '${asset.name.replace(/'/g,"\\'")}')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <a class="action-btn icon-only" href="https://github.com/${asset.repo}" target="_blank" title="Visit Repo">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+      </a>
+      <button class="action-btn icon-only" onclick='openModal(${JSON.stringify(asset).replace(/'/g,"&#39;")})' title="Info">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </button>
+    </div>`;
+  return div;
+}
+
+function makeRow(asset, i) {
+  const cfg = typeConfig[asset.type];
+  const div = document.createElement('div');
+  div.className = 'list-row';
+  div.style.animationDelay = `${Math.min(i * 20, 200)}ms`;
+  div.innerHTML = `
+    <span class="file-icon" style="font-size:1.4rem;margin:0">${cfg.icon}</span>
+    <div class="card-name" style="flex:1;margin:0">${highlight(asset.name)}</div>
+    <div class="card-repo" style="margin:0;flex-shrink:0">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      ${highlight(asset.repo)}
+    </div>
+    <span class="type-badge ${cfg.badge}" style="flex-shrink:0">${cfg.label}</span>
+    <div class="card-meta" style="border:none;padding:0;margin:0;gap:1rem;flex-shrink:0">
+      <span>${formatSize(asset.size)}</span>
+      <span>${formatDate(asset.repoUpdated)}</span>
+    </div>
+    ${asset.isNew ? '<span class="new-badge">NEW</span>' : ''}
+    <div class="card-actions" style="flex-shrink:0">
+      <button class="action-btn icon-only" onclick="toggleFav('${asset.sha}', event)" title="Toggle Favorite">
+        ${allFavorites.some(f => f.sha === asset.sha) ? '⭐' : '☆'}
+      </button>
+      <button class="action-btn download" onclick="triggerDownload('${asset.downloadUrl}', '${asset.name.replace(/'/g,"\\'")}')" style="flex:0 0 auto;padding:0.4rem 0.7rem">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+      <a class="action-btn icon-only" href="https://github.com/${asset.repo}" target="_blank" title="Visit Repo">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+      </a>
+      <button class="action-btn icon-only" onclick='openModal(${JSON.stringify(asset).replace(/'/g,"&#39;")})' title="Info">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </button>
+    </div>`;
+  return div;
+}
+
+// ===================== MODAL =====================
+function openModal(asset) {
+  const cfg = typeConfig[asset.type];
+  const isExe = asset.type === 'exe';
+  document.getElementById('modalContent').innerHTML = `
+    <div class="modal-header">
+      <div class="modal-title">${cfg.icon} ${escHtml(asset.name)}</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="info-row"><span class="info-label">Type</span><span class="info-val"><span class="type-badge ${cfg.badge}">${cfg.label}</span></span></div>
+    <div class="info-row"><span class="info-label">File name</span><span class="info-val">${escHtml(asset.name)}</span></div>
+    <div class="info-row"><span class="info-label">Repository</span><span class="info-val"><a href="${asset.repoUrl}" target="_blank" style="color:var(--accent2)">${escHtml(asset.repo)}</a></span></div>
+    <div class="info-row"><span class="info-label">Path</span><span class="info-val">${escHtml(asset.path)}</span></div>
+    <div class="info-row"><span class="info-label">Size</span><span class="info-val">${formatSize(asset.size)}</span></div>
+    <div class="info-row"><span class="info-label">Repo stars</span><span class="info-val">⭐ ${asset.stars.toLocaleString()}</span></div>
+    <div class="info-row"><span class="info-label">Last updated</span><span class="info-val">${new Date(asset.repoUpdated).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
+    <div class="info-row"><span class="info-label">SHA</span><span class="info-val" style="font-size:0.65rem">${asset.sha}</span></div>
+    ${isExe ? `<div class="warning-box">⚠️ <span>Exercise caution with executable files. Verify the source repository and author before running.</span></div>` : ''}
+    <div style="display:flex;gap:0.5rem;margin-top:1.25rem">
+      <button class="action-btn download" style="flex:1;justify-content:center" onclick="triggerDownload('${asset.downloadUrl}', '${asset.name.replace(/'/g,"\\'")}')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button class="action-btn" style="flex:1;justify-content:center" onclick='copyLink("${asset.downloadUrl}")'>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy Link
+      </button>
+      <a class="action-btn" href="${asset.htmlUrl}" target="_blank" style="flex:0 0 auto" title="View on GitHub">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.49.5.09.68-.22.68-.48v-1.69c-2.78.6-3.37-1.34-3.37-1.34-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.8c.85.004 1.71.115 2.51.337 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10.01 10.01 0 0 0 22 12c0-5.52-4.48-10-10-10z"/></svg>
+      </a>
+    </div>`;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').style.display = 'none';
+  }
+}
+
+// ===================== UTILS =====================
+function formatSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  if (bytes < 1024*1024*1024) return (bytes/1024/1024).toFixed(1) + ' MB';
+  return (bytes/1024/1024/1024).toFixed(2) + ' GB';
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function copyLink(url) {
+  navigator.clipboard.writeText(url).then(() => showToast('📋 Link copied!')).catch(() => showToast('❌ Copy failed'));
+}
+
+async function triggerDownload(url, filename) {
+  showToast('⏳ Starting download...');
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error();
+    const blob = await resp.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+    showToast('✅ Download started!');
+  } catch (e) {
+    // Fallback if CORS fails (typical for some GitHub raw files if not correctly headers)
+    window.open(url, '_blank');
+    showToast('⚠️ Opening in new tab (Cross-Origin restricted)');
+  }
+}
+
+function showToast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, 2800);
+}
+
+function setResultCount(html) { document.getElementById('resultCount').innerHTML = html; }
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('gridBtn').classList.toggle('active', v==='grid');
+  document.getElementById('listBtn').classList.toggle('active', v==='list');
+  renderAssets();
+}
+
+
+function showProgress(show) {
+  document.getElementById('progressBar').style.display = show ? 'block' : 'none';
+  if (!show) setProgress(0);
+}
+
+function setProgress(p) { document.getElementById('progressFill').style.width = p + '%'; }
+
+function showSkeletons() {
+  const container = document.getElementById('assetContainer');
+  const grid = document.createElement('div');
+  grid.className = 'asset-grid';
+  for (let i = 0; i < 12; i++) {
+    grid.innerHTML += `
+      <div class="card" style="animation:none">
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.9rem">
+          <div class="skeleton" style="width:50px;height:22px"></div>
+        </div>
+        <div class="skeleton" style="width:50px;height:50px;margin:0.5rem auto 0.9rem;border-radius:8px"></div>
+        <div class="skeleton" style="height:14px;margin-bottom:6px"></div>
+        <div class="skeleton" style="height:11px;width:70%;margin-bottom:0.75rem"></div>
+        <div style="display:flex;justify-content:space-between;padding-top:0.75rem;border-top:1px solid var(--border)">
+          <div class="skeleton" style="width:50px;height:11px"></div>
+          <div class="skeleton" style="width:60px;height:11px"></div>
+        </div>
+      </div>`;
+  }
+  container.innerHTML = '';
+  container.appendChild(grid);
+}
+
+function updateStats() {
+  const totalSize = allAssets.reduce((s,a) => s+(a.size||0), 0);
+  const latestDate = allAssets.reduce((latest, a) => {
+     const d = new Date(a.repoUpdated);
+     return d > latest ? d : latest;
+  }, new Date(0));
+  
+  const bar = document.getElementById('statsBar');
+  if (!bar) return;
+  bar.style.display = allAssets.length ? 'flex' : 'none';
+  
+  const filesEl = document.getElementById('statFiles');
+  const sizeEl = document.getElementById('statSize');
+  const dateEl = document.getElementById('statDate');
+  const repoEl = document.getElementById('statRepos');
+  
+  if (filesEl) filesEl.textContent = allAssets.length.toLocaleString();
+  if (sizeEl) sizeEl.textContent = formatSize(totalSize);
+  if (dateEl) dateEl.textContent = allAssets.length ? formatDate(latestDate) : '—';
+  if (repoEl) repoEl.textContent = new Set(allAssets.map(a => a.repo)).size;
+}
+
+function renderHistory() {
+  const bar = document.getElementById('historyBar');
+  if (!bar) return;
+  bar.innerHTML = searchHistory.map(h => `<div class="history-chip" onclick="applyHistory('${h.replace(/'/g,"&#39;")}')">${escHtml(h)}</div>`).join('');
+}
+
+function saveSearchToHistory(q) {
+  if (!q || q.length < 3) return;
+  searchHistory = [q, ...searchHistory.filter(h => h !== q)].slice(0, 5);
+  localStorage.setItem('ghSearchHistory', JSON.stringify(searchHistory));
+  renderHistory();
+}
+
+function applyHistory(q) {
+  document.getElementById('globalSearchQuery').value = q;
+  performGlobalSearch();
+}
+
+function setupKeyboardShortcuts() {
+  window.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+      e.preventDefault();
+      document.getElementById('globalSearchQuery').focus();
+    }
+    if (e.key === '[' && document.activeElement.tagName !== 'INPUT') setView('grid');
+    if (e.key === ']' && document.activeElement.tagName !== 'INPUT') setView('list');
+    if (e.key === 'Escape') {
+      closeModal();
+      const adv = document.getElementById('advancedFilters');
+      if (adv) adv.style.display = 'none';
+    }
+  });
+}
+
+function highlight(text) {
+  const q = document.getElementById('globalSearchQuery').value.trim();
+  if (!q || q.includes(':')) return escHtml(text);
+  const regex = new RegExp(`(${q})`, 'gi');
+  return escHtml(text).replace(regex, '<mark>$1</mark>');
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarBackdrop').classList.toggle('open');
+}
+
+// ESC to close modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal({ target: document.getElementById('modalOverlay') });
+});
+
+// Load any assets we've previously cached locally 
+function loadCachedAssets() {
+  try {
+    const cached = localStorage.getItem('cachedAssets');
+    if (cached) {
+      allAssets = JSON.parse(cached);
+      if (allAssets && allAssets.length > 0) {
+        setResultCount(`Loaded ${allAssets.length} assets (Global network match)`);
+        buildRepoFilters();
+        updateStats();
+        renderAssets();
+      }
+    }
+  } catch(e) { /* ignore parse errors */ }
+}
+
+// Initialize application state
+window.onload = async () => {
+  await loadCachedToken();
+  renderHistory();
+  setupKeyboardShortcuts();
+  loadCachedAssets();
+  updateRatePill();
+  
+  // Feature: Auto-preload broad results if no cache exists and token is ready
+  if (allAssets.length === 0 && document.getElementById('ghToken').value.trim()) {
+    performGlobalSearch();
+  }
+};
+</script>
+
+</body>
+</html>
